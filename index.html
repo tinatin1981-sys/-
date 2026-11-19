@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CHRONO RIFT — Разломы времени ждут тебя</title>
+<style>
+  :root {
+    --bg: #05060f;
+    --bg-2: #0b0d1f;
+    --accent: #00f0ff;
+    --accent-2: #ff2bd6;
+    --accent-3: #b026ff;
+    --text: #e8ecff;
+    --muted: #8a90b8;
+    --card: rgba(255,255,255,0.03);
+    --border: rgba(0,240,255,0.15);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+    line-height: 1.6;
+    cursor: none;
+  }
+
+  /* ===== КАСТОМНЫЙ КУРСОР ===== */
+  .cursor-dot, .cursor-ring {
+    position: fixed;
+    top: 0; left: 0;
+    pointer-events: none;
+    z-index: 9999;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: transform .15s ease, width .3s, height .3s, background .3s;
+    mix-blend-mode: difference;
+  }
+  .cursor-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    box-shadow: 0 0 20px var(--accent);
+  }
+  .cursor-ring {
+    width: 40px; height: 40px;
+    border: 1.5px solid var(--accent);
+    transition: transform .25s cubic-bezier(.23,1,.32,1), width .3s, height .3s, border-color .3s;
+  }
+  .cursor-ring.hover {
+    width: 70px; height: 70px;
+    border-color: var(--accent-2);
+    background: rgba(255,43,214,0.1);
+  }
+
+  /* ===== CANVAS ЧАСТИЦЫ ===== */
+  #particles {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ===== АНИМИРОВАННЫЙ MESH-ФОН ===== */
+  .mesh-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 30%, rgba(0,240,255,0.25), transparent 50%),
+      radial-gradient(ellipse 60% 60% at 80% 70%, rgba(255,43,214,0.25), transparent 50%),
+      radial-gradient(ellipse 70% 40% at 50% 100%, rgba(176,38,255,0.2), transparent 50%);
+    animation: meshMove 20s ease-in-out infinite alternate;
+    filter: blur(40px);
+  }
+  @keyframes meshMove {
+    0% { transform: translate(0,0) scale(1); }
+    50% { transform: translate(-5%, 3%) scale(1.1); }
+    100% { transform: translate(3%, -2%) scale(1.05); }
+  }
+
+  /* ===== NOISE OVERLAY (кинематографичность) ===== */
+  .noise {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.04;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+
+  /* ===== SCAN LINES (CRT эффект) ===== */
+  .scanlines {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0.08) 3px,
+      rgba(0,0,0,0) 4px
+    );
+    opacity: 0.4;
+  }
+
+  /* ===== NAVIGATION ===== */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    padding: 20px 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+    backdrop-filter: blur(20px) saturate(180%);
+    background: rgba(5,6,15,0.5);
+    border-bottom: 1px solid var(--border);
+    transition: all .4s;
+  }
+  nav.scrolled {
+    padding: 14px 5%;
+    background: rgba(5,6,15,0.85);
+    box-shadow: 0 10px 40px rgba(0,240,255,0.1);
+  }
+  .logo {
+    font-size: 1.4rem;
+    font-weight: 900;
+    letter-spacing: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent-3));
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: gradientShift 4s linear infinite;
+    position: relative;
+  }
+  @keyframes gradientShift {
+    to { background-position: 200% center; }
+  }
+  .nav-links { display: flex; gap: 32px; list-style: none; }
+  .nav-links a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    position: relative;
+    padding: 4px 0;
+    transition: color .3s;
+  }
+  .nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 0; height: 1px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width .4s cubic-bezier(.23,1,.32,1);
+    box-shadow: 0 0 10px var(--accent);
+  }
+  .nav-links a:hover { color: var(--accent); }
+  .nav-links a:hover::after { width: 100%; }
+
+  /* ===== HERO ===== */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 120px 20px 60px;
+    position: relative;
+    z-index: 3;
+  }
+  .hero-badge {
+    display: inline-block;
+    padding: 6px 18px;
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    font-size: 0.75rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 30px;
+    backdrop-filter: blur(10px);
+    background: rgba(0,240,255,0.05);
+    animation: fadeInUp 1s ease .2s backwards;
+  }
+  .hero-badge::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 10px;
+    box-shadow: 0 0 10px var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.3); }
+  }
+
+  .hero h1 {
+    font-size: clamp(3.5rem, 11vw, 9rem);
+    font-weight: 900;
+    letter-spacing: 8px;
+    line-height: 0.95;
+    position: relative;
+    animation: fadeInUp 1.2s ease .4s backwards;
+  }
+  .hero h1 .glitch {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 50%, var(--accent-3) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    position: relative;
+    display: inline-block;
+  }
+  .hero h1 .glitch::before,
+  .hero h1 .glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    background: inherit;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hero h1 .glitch::before {
+    animation: glitch1 3s infinite;
+    clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+  }
+  .hero h1 .glitch::after {
+    animation: glitch2 3s infinite;
+    clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+  }
+  @keyframes glitch1 {
+    0%, 90%, 100% { transform: translate(0); }
+    92% { transform: translate(-3px, 1px); }
+    94% { transform: translate(3px, -1px); }
+    96% { transform: translate(-2px, 0); }
+  }
+  @keyframes glitch2 {
+    0%, 90%, 100% { transform: translate(0); }
+    91% { transform: translate(2px, -1px); }
+    93% { transform: translate(-3px, 1px); }
+    95% { transform: translate(1px, 2px); }
+  }
+
+  .hero .tagline {
+    font-size: clamp(1rem, 2vw, 1.3rem);
+    color: var(--muted);
+    margin: 30px 0 50px;
+    max-width: 650px;
+    animation: fadeInUp 1.2s ease .7s backwards;
+  }
+  .hero .tagline .typed {
+    color: var(--text);
+    border-right: 2px solid var(--accent);
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink {
+    50% { border-color: transparent; }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(40px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== КНОПКИ (MAGNETIC) ===== */
+  .btn-group { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; animation: fadeInUp 1.2s ease 1s backwards; }
+  .btn {
+    padding: 16px 42px;
+    border-radius: 50px;
+    text-decoration: none;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    cursor: none;
+    border: none;
+    position: relative;
+    overflow: hidden;
+    transition: transform .3s cubic-bezier(.23,1,.32,1);
+    will-change: transform;
+  }
+  .btn-primary {
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    color: #000;
+    box-shadow: 0 0 40px rgba(0,240,255,0.4), inset 0 0 20px rgba(255,255,255,0.2);
+  }
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    transition: left .6s;
+  }
+  .btn-primary:hover::before { left: 100%; }
+  .btn-primary:hover {
+    box-shadow: 0 0 60px rgba(255,43,214,0.7), inset 0 0 20px rgba(255,255,255,0.3);
+  }
+  .btn-ghost {
+    background: rgba(255,255,255,0.03);
+    color: var(--text);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(10px);
+  }
+  .btn-ghost:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 30px rgba(0,240,255,0.3);
+  }
+
+  /* ===== SCROLL INDICATOR ===== */
+  .scroll-indicator {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    animation: fadeInUp 1.2s ease 1.4s backwards;
+  }
+  .scroll-indicator .line {
+    width: 1px;
+    height: 60px;
+    background: linear-gradient(to bottom, var(--accent), transparent);
+    animation: scrollLine 2s ease-in-out infinite;
+  }
+  @keyframes scrollLine {
+    0%, 100% { transform: scaleY(0); transform-origin: top; }
+    50% { transform: scaleY(1); transform-origin: top; }
+    51% { transform-origin: bottom; }
+  }
+
+  /* ===== SECTIONS ===== */
+  section { padding: 120px 5%; max-width: 1300px; margin: 0 auto; position: relative; z-index: 3; }
+  .section-title {
+    font-size: clamp(2.2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    margin-bottom: 16px;
+    text-align: center;
+    letter-spacing: 2px;
+  }
+  .section-title .accent {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .section-sub {
+    text-align: center;
+    color: var(--muted);
+    margin-bottom: 70px;
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+    font-size: 1.05rem;
+  }
+
+  /* ===== MARQUEE ===== */
+  .marquee {
+    overflow: hidden;
+    padding: 30px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin: 40px 0;
+    background: rgba(0,240,255,0.02);
+    position: relative;
+    z-index: 3;
+  }
+  .marquee-track {
+    display: flex;
+    gap: 60px;
+    animation: marquee 30s linear infinite;
+    white-space: nowrap;
+    width: max-content;
+  }
+  .marquee-item {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 60px;
+  }
+  .marquee-item .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 15px var(--accent);
+  }
+  @keyframes marquee {
+    to { transform: translateX(-50%); }
+  }
+
+  /* ===== FEATURES (3D TILT) ===== */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    perspective: 1000px;
+  }
+  .feature {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px 28px;
+    backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+    transition: transform .5s cubic-bezier(.23,1,.32,1), border-color .4s, box-shadow .4s;
+    transform-style: preserve-3d;
+    opacity: 0;
+    transform: translateY(60px);
+  }
+  .feature.visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity .8s, transform .8s cubic-bezier(.23,1,.32,1);
+  }
+  .feature::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(0,240,255,0.15), transparent 40%);
+    opacity: 0;
+    transition: opacity .4s;
+    pointer-events: none;
+  }
+  .feature:hover::before { opacity: 1; }
+  .feature:hover {
+    border-color: var(--accent);
+    box-shadow: 0 20px 60px rgba(0,240,255,0.15), 0 0 0 1px var(--accent);
+  }
+  .feature .icon {
+    font-size: 2.8rem;
+    margin-bottom: 20px;
+    display: inline-block;
+    filter: drop-shadow(0 0 15px var(--accent));
+    transform: translateZ(40px);
+  }
+  .feature h3 {
+    margin-bottom: 12px;
+    font-size: 1.25rem;
+    letter-spacing: 1px;
+    transform: translateZ(30px);
+  }
+  .feature p {
+    color: var(--muted);
+    font-size: 0.95rem;
+    transform: translateZ(20px);
+  }
+  .feature .corner {
+    position: absolute;
+    width: 20px; height: 20px;
+    border: 1px solid var(--accent);
+    opacity: 0;
+    transition: opacity .4s;
+  }
+  .feature:hover .corner { opacity: 1; }
+  .feature .corner.tl { top: 10px; left: 10px; border-right: none; border-bottom: none; }
+  .feature .corner.tr { top: 10px; right: 10px; border-left: none; border-bottom: none; }
+  .feature .corner.bl { bottom: 10px; left: 10px; border-right: none; border-top: none; }
+  .feature .corner.br { bottom: 10px; right: 10px; border-left: none; border-top: none; }
+
+  /* ===== GALLERY ===== */
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+  }
+  .gallery-item {
+    aspect-ratio: 16/10;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
+    cursor: none;
+    background: linear-gradient(135deg, #1a1d3a, #0b0d1f);
+    border: 1px solid var(--border);
+    transition: transform .5s cubic-bezier(.23,1,.32,1);
+  }
+  .gallery-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 30% 30%, rgba(0,240,255,0.4), transparent 50%),
+      radial-gradient(circle at 70% 70%, rgba(255,43,214,0.4), transparent 50%);
+    opacity: 0.6;
+    transition: opacity .5s, transform .5s;
+  }
+  .gallery-item::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent 50%);
+  }
+  .gallery-item:hover {
+    transform: translateY(-10px) scale(1.02);
+    box-shadow: 0 30px 60px rgba(0,240,255,0.2);
+  }
+  .gallery-item:hover::before {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  .gallery-item span {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    color: white;
+    font-weight: 700;
+    z-index: 2;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+  }
+  .gallery-item .play {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #000;
+    font-size: 1.5rem;
+    transition: transform .4s cubic-bezier(.23,1,.32,1);
+    z-index: 2;
+    box-shadow: 0 0 30px rgba(255,255,255,0.5);
+  }
+  .gallery-item:hover .play { transform: translate(-50%, -50%) scale(1); }
+
+  /* ===== REQUIREMENTS ===== */
+  .req-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .req-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px;
+    backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+    transition: all .4s;
+  }
+  .req-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .6s;
+  }
+  .req-card:hover::before { transform: scaleX(1); }
+  .req-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 20px 50px rgba(0,240,255,0.1);
+  }
+  .req-card h3 {
+    color: var(--accent);
+    margin-bottom: 24px;
+    font-size: 1.2rem;
+    letter-spacing: 3px;
+  }
+  .req-card ul { list-style: none; }
+  .req-card li {
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.95rem;
+    transition: padding .3s;
+  }
+  .req-card li:hover { padding-left: 8px; }
+  .req-card li:hover span:last-child { color: var(--accent); }
+  .req-card li span:first-child { color: var(--muted); }
+  .req-card li span:last-child { transition: color .3s; }
+
+  /* ===== CTA ===== */
+  .cta {
+    text-align: center;
+    padding: 120px 20px;
+    background: linear-gradient(135deg, rgba(0,240,255,0.08), rgba(255,43,214,0.08));
+    border-radius: 30px;
+    border: 1px solid var(--border);
+    margin: 80px 5%;
+    position: relative;
+    overflow: hidden;
+    z-index: 3;
+  }
+  .cta::before {
+    content: '';
+    position: absolute;
+    inset: -50%;
+    background: conic-gradient(from 0deg, transparent, var(--accent), transparent, var(--accent-2), transparent);
+    animation: rotate 8s linear infinite;
+    opacity: 0.1;
+  }
+  @keyframes rotate {
+    to { transform: rotate(360deg); }
+  }
+  .cta > * { position: relative; z-index: 2; }
+  .cta h2 {
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    margin-bottom: 20px;
+    letter-spacing: 2px;
+  }
+  .platforms {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-top: 50px;
+    flex-wrap: wrap;
+    color: var(--muted);
+    font-size: 1rem;
+    letter-spacing: 2px;
+  }
+
+  /* ===== FOOTER ===== */
+  footer {
+    padding: 50px 5%;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.9rem;
+    position: relative;
+    z-index: 3;
+  }
+  .socials { display: flex; justify-content: center; gap: 24px; margin-bottom: 24px; }
+  .socials a {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 1.2rem;
+    transition: all .3s;
+    backdrop-filter: blur(10px);
+  }
+  .socials a:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(0,240,255,0.3);
+  }
+
+  /* ===== REVEAL ON SCROLL ===== */
+  .reveal {
+    opacity: 0;
+    transform: translateY(50px);
+    transition: opacity 1s cubic-bezier(.23,1,.32,1), transform 1s cubic-bezier(.23,1,.32,1);
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ===== АДАПТИВ ===== */
+  @media (max-width: 768px) {
+    body { cursor: auto; }
+    .cursor-dot, .cursor-ring { display: none; }
+    .btn, .gallery-item { cursor: pointer; }
+    .nav-links { display: none; }
+    .req-grid { grid-template-columns: 1fr; }
+    .hero h1 { letter-spacing: 4px; }
+  }
+
+  ::selection { background: var(--accent); color: #000; }
+</style>
+</head>
+<body>
+
+<!-- Кастомный курсор -->
+<div class="cursor-dot"></div>
+<div class="cursor-ring"></div>
+
+<!-- Фоновые слои -->
+<canvas id="particles"></canvas>
+<div class="mesh-bg"></div>
+<div class="noise"></div>
+<div class="scanlines"></div>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="logo">CHRONO RIFT</div>
+  <ul class="nav-links">
+    <li><a href="#about">Об игре</a></li>
+    <li><a href="#features">Особенности</a></li>
+    <li><a href="#gallery">Галерея</a></li>
+    <li><a href="#requirements">Требования</a></li>
+    <li><a href="#download">Скачать</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">Доступно с 20 ноября 2026</div>
+  <h1><span class="glitch" data-text="CHRONO">CHRONO</span><br><span class="glitch" data-text="RIFT">RIFT</span></h1>
+  <p class="tagline">Эпическая action-RPG с путешествиями во времени. <span class="typed" id="typed"></span></p>
+  <div class="btn-group">
+    <a href="#download" class="btn btn-primary" data-magnetic>Играть сейчас</a>
+    <a href="#about" class="btn btn-ghost" data-magnetic>Смотреть трейлер</a>
+  </div>
+  <div class="scroll-indicator">
+    <span>Scroll</span>
+    <div class="line"></div>
+  </div>
+</section>
+
+<!-- MARQUEE -->
+<div class="marquee">
+  <div class="marquee-track">
+    <div class="marquee-item">Time Travel <span class="dot"></span> Open World <span class="dot"></span> 40 Endings <span class="dot"></span> Dynamic Combat <span class="dot"></span> 120 km² Map <span class="dot"></span></div>
+    <div class="marquee-item">Time Travel <span class="dot"></span> Open World <span class="dot"></span> 40 Endings <span class="dot"></span> Dynamic Combat <span class="dot"></span> 120 km² Map <span class="dot"></span></div>
+  </div>
+</div>
+
+<!-- ABOUT -->
+<section id="about" class="reveal">
+  <h2 class="section-title">Мир на <span class="accent">грани коллапса</span></h2>
+  <p class="section-sub">
+    Год 2187. Временные разломы разрывают ткань реальности. Ты — последний Хроно-Страж,
+    способный прыгать между эпохами и менять ход истории. Каждое твоё решение создаёт
+    новую ветку реальности. Готов нести ответственность?
+  </p>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <h2 class="section-title reveal">Что тебя <span class="accent">ждёт</span></h2>
+  <p class="section-sub reveal">6 причин погрузиться в CHRONO RIFT</p>
+  <div class="features">
+    <div class="feature" data-tilt>
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="icon">⚔️</div>
+      <h3>Динамичный бой</h3>
+      <p>Комбинируй оружие из разных эпох: от катаны самурая до плазменной винтовки будущего.</p>
+    </div>
+    <div class="feature" data-tilt>
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="icon">🌀</div>
+      <h3>Прыжки во времени</h3>
+      <p>Путешествуй между Древним Римом, Средневековьем и киберпанк-мегаполисом 22 века.</p>
+    </div>
+    <div class="feature" data-tilt>
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="icon">🧬</div>
+      <h3>Ветвящийся сюжет</h3>
+      <p>Более 40 концовок. Каждое решение меняет мир и судьбы NPC навсегда.</p>
+    </div>
+    <div class="feature" data-tilt>
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="icon">🎭</div>
+      <h3>Глубокая кастомизация</h3>
+      <p>Создай уникального героя: внешность, навыки, стиль боя — всё в твоих руках.</p>
+    </div>
+    <div class="feature" data-tilt>
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="icon">🌍</div>
+      <h3>Открытый мир</h3>
+      <p>120 км² бесшовной карты с секретами, подземельями и динамической погодой.</p>
+    </div>
+    <div class="feature" data-tilt>
+      <span class="corner tl"></span><span class="corner tr"></span>
+      <span class="corner bl"></span><span class="corner br"></span>
+      <div class="icon">🎵</div>
+      <h3>Оригинальный саундтрек</h3>
+      <p>Симфонический оркестр + электронный бит. 3 часа музыки от награждённых композиторов.</p>
+    </div>
+  </div>
+</section>
+
+<!-- GALLERY -->
+<section id="gallery">
+  <h2 class="section-title reveal">Скриншоты из <span class="accent">игры</span></h2>
+  <p class="section-sub reveal">Загляни в мир CHRONO RIFT</p>
+  <div class="gallery">
+    <div class="gallery-item reveal"><div class="play">▶</div><span>Неоновый Токио-2187</span></div>
+    <div class="gallery-item reveal"><div class="play">▶</div><span>Древний Рим в огне</span></div>
+    <div class="gallery-item reveal"><div class="play">▶</div><span>Битва с Хроно-Драконом</span></div>
+    <div class="gallery-item reveal"><div class="play">▶</div><span>Подземелья Вечности</span></div>
+  </div>
+</section>
+
+<!-- REQUIREMENTS -->
+<section id="requirements">
+  <h2 class="section-title reveal">Системные <span class="accent">требования</span></h2>
+  <p class="section-sub reveal">Проверь, потянет ли твой ПК</p>
+  <div class="req-grid">
+    <div class="req-card reveal">
+      <h3>◆ МИНИМАЛЬНЫЕ</h3>
+      <ul>
+        <li><span>ОС</span><span>Windows 10 64-bit</span></li>
+        <li><span>Процессор</span><span>Intel i5-8400 / Ryzen 5 2600</span></li>
+        <li><span>Память</span><span>8 GB RAM</span></li>
+        <li><span>Видеокарта</span><span>GTX 1060 6GB / RX 580</span></li>
+        <li><span>DirectX</span><span>Версии 12</span></li>
+        <li><span>Место на диске</span><span>80 GB SSD</span></li>
+      </ul>
+    </div>
+    <div class="req-card reveal">
+      <h3>◆ РЕКОМЕНДУЕМЫЕ</h3>
+      <ul>
+        <li><span>ОС</span><span>Windows 11 64-bit</span></li>
+        <li><span>Процессор</span><span>Intel i7-12700K / Ryzen 7 5800X</span></li>
+        <li><span>Память</span><span>16 GB RAM</span></li>
+        <li><span>Видеокарта</span><span>RTX 3070 / RX 6800 XT</span></li>
+        <li><span>DirectX</span><span>Версии 12</span></li>
+        <li><span>Место на диске</span><span>80 GB NVMe SSD</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta reveal" id="download">
+  <h2>Готов <span class="accent">разорвать время</span>?</h2>
+  <p class="section-sub">Доступно уже сейчас на всех основных платформах</p>
+  <div class="btn-group">
+    <a href="#" class="btn btn-primary" data-magnetic>Steam — 1999 ₽</a>
+    <a href="#" class="btn btn-ghost" data-magnetic>Epic Games</a>
+  </div>
+  <div class="platforms">
+    <span>🖥️ PC</span>
+    <span>🎮 PlayStation 5</span>
+    <span>🎮 Xbox Series X|S</span>
+    <span>🎮 Nintendo Switch</span>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="socials">
+    <a href="#" title="Discord">💬</a>
+    <a href="#" title="Twitter">🐦</a>
+    <a href="#" title="YouTube">▶️</a>
+    <a href="#" title="Telegram">✈️</a>
+  </div>
+  <p>© 2026 CHRONO RIFT Studio. Все права защищены.</p>
+  <p style="margin-top:10px; font-size:0.8rem;">Политика конфиденциальности · Пользовательское соглашение</p>
+</footer>
+
+<script>
+/* ===== КАСТОМНЫЙ КУРСОР ===== */
+const dot = document.querySelector('.cursor-dot');
+const ring = document.querySelector('.cursor-ring');
+let mx = 0, my = 0, rx = 0, ry = 0;
+
+window.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  dot.style.left = mx + 'px';
+  dot.style.top = my + 'px';
+});
+
+function animateRing() {
+  rx += (mx - rx) * 0.15;
+  ry += (my - ry) * 0.15;
+  ring.style.left = rx + 'px';
+  ring.style.top = ry + 'px';
+  requestAnimationFrame(animateRing);
+}
+animateRing();
+
+document.querySelectorAll('a, button, .btn, .gallery-item, .feature, .socials a').forEach(el => {
+  el.addEventListener('mouseenter', () => ring.classList.add('hover'));
+  el.addEventListener('mouseleave', () => ring.classList.remove('hover'));
+});
+
+/* ===== ЧАСТИЦЫ НА CANVAS ===== */
+const canvas = document.getElementById('particles');
+const ctx = canvas.getContext('2d');
+let particles = [];
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class Particle {
+  constructor() {
+    this.reset();
+    this.y = Math.random() * canvas.height;
+  }
+  reset() {
+    this.x = Math.random() * canvas.width;
+    this.y = canvas.height + 10;
+    this.size = Math.random() * 2 + 0.5;
+    this.speed = Math.random() * 0.5 + 0.2;
+    this.opacity = Math.random() * 0.5 + 0.2;
+    this.color = Math.random() > 0.5 ? '0,240,255' : '255,43,214';
+    this.drift = (Math.random() - 0.5) * 0.3;
+  }
+  update() {
+    this.y -= this.speed;
+    this.x += this.drift;
+    if (this.y < -10) this.reset();
+  }
+  draw() {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${this.color},${this.opacity})`;
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = `rgba(${this.color},0.8)`;
+    ctx.fill();
+  }
+}
+
+for (let i = 0; i < 80; i++) particles.push(new Particle());
+
+function animate() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  particles.forEach(p => { p.update(); p.draw(); });
+  requestAnimationFrame(animate);
+}
+animate();
+
+/* ===== 3D TILT НА КАРТОЧКАХ ===== */
+document.querySelectorAll('[data-tilt]').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const rx = ((y - cy) / cy) * -8;
+    const ry = ((x - cx) / cx) * 8;
+    card.style.transform = `perspective(1000px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(0)`;
+    card.style.setProperty('--mx', x + 'px');
+    card.style.setProperty('--my', y + 'px');
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)';
+  });
+});
+
+/* ===== MAGNETIC КНОПКИ ===== */
+document.querySelectorAll('[data-magnetic]').forEach(btn => {
+  btn.addEventListener('mousemove', e => {
+    const rect = btn.getBoundingClientRect();
+    const x = e.clientX - rect.left - rect.width / 2;
+    const y = e.clientY - rect.top - rect.height / 2;
+    btn.style.transform = `translate(${x * 0.3}px, ${y * 0.3}px)`;
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.transform = 'translate(0, 0)';
+  });
+});
+
+/* ===== SCROLL REVEAL ===== */
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((entry, i) => {
+    if (entry.isIntersecting) {
+      setTimeout(() => entry.target.classList.add('visible'), i * 100);
+      observer.unobserve(entry.target);
+    }
+  });
+}, { threshold: 0.15 });
+
+document.querySelectorAll('.reveal, .feature').forEach(el => observer.observe(el));
+
+/* ===== NAV SCROLL ===== */
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 50) nav.classList.add('scrolled');
+  else nav.classList.remove('scrolled');
+});
+
+/* ===== TYPED EFFECT ===== */
+const phrases = ['Ломай реальность.', 'Перепиши историю.', 'Стань легендой.'];
+const typed = document.getElementById('typed');
+let pi = 0, ci = 0, deleting = false;
+
+function type() {
+  const current = phrases[pi];
+  if (!deleting) {
+    typed.textContent = current.slice(0, ci++);
+    if (ci > current.length) {
+      deleting = true;
+      setTimeout(type, 1800);
+      return;
+    }
+  } else {
+    typed.textContent = current.slice(0, ci--);
+    if (ci < 0) {
+      deleting = false;
+      pi = (pi + 1) % phrases.length;
+    }
+  }
+  setTimeout(type, deleting ? 40 : 90);
+}
+type();
+
+/* ===== PARALLAX НА HERO ===== */
+const hero = document.querySelector('.hero');
+window.addEventListener('scroll', () => {
+  const y = window.scrollY;
+  if (y < window.innerHeight) {
+    hero.style.transform = `translateY(${y * 0.3}px)`;
+    hero.style.opacity = 1 - y / window.innerHeight;
+  }
+});
+</script>
+
+</body>
+</html>
